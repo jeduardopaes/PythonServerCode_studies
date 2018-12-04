@@ -20,6 +20,7 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs
 
+memory = []
 
 class MessageHandler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -29,17 +30,38 @@ class MessageHandler(BaseHTTPRequestHandler):
         data = self.rfile.read(length).decode()
         # 3. Extract the "message" field from the request data.
         message = parse_qs(data)["message"][0]
-        # Send the "message" field back as the response.
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain; charset=utf-8')
+        # Escape HTML tags in the message so users can't break world+dog.
+        message = message.replace("<", "&lt;")
+
+        # Store it in memory.
+        memory.append(message)
+
+        # # Send the "message" field back as the response.
+        # self.send_response(200)
+        # self.send_header('Content-type', 'text/plain; charset=utf-8')
+        # self.end_headers()
+        # self.wfile.write(message.encode())
+
+        self.send_response(303)
+        self.send_header('Location', '/')
         self.end_headers()
-        self.wfile.write(message.encode())
+
     def do_GET(self):
-        messagePage = '<!DOCTYPE html><title>Message Board</title><form method="POST" action="http://localhost:7001/"><textarea name="message"></textarea><br><button type="submit">Post it!</button></form>'
+        messagePage = '''<!DOCTYPE html>
+            <title>Message Board</title>
+            <form method="POST" action="http://localhost:7001/">
+            <textarea name="message"></textarea>
+            <br>
+            <button type="submit">Post it!</button>
+            </form>
+            <pre>{}</pre>
+            '''
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
         self.end_headers()
-        self.wfile.write(messagePage.encode())
+        # Send the form with the messages in it.
+        mesg = messagePage.format("\n".join(memory))
+        self.wfile.write(mesg.encode())
 
 if __name__ == '__main__':
     server_address = ('', 7001)
